@@ -32,6 +32,33 @@ const initialUsers = [
   { id: 'USR-002', name: 'Yuvraj', email: 'yuvraj', role: 'Manager', password: 'yuvraj@321' },
 ];
 
+// --- LOCAL STORAGE (PERSIST DATA ON REFRESH) ---
+const STORAGE_KEYS = {
+  products: 'pe_products_v1',
+  sales: 'pe_sales_v1',
+  users: 'pe_users_v1',
+};
+
+function loadJsonFromStorage(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return parsed ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveJsonToStorage(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    // Ignore quota / privacy mode errors; app will still work in-memory.
+    console.warn('Failed to save to localStorage:', key, e);
+  }
+}
+
 // --- GOOGLE SHEETS (OPTIONAL SYNC) ---
 // Uses Google Apps Script Web App endpoint. Configure in `.env` (see `.env.example`).
 const SHEET_SYNC_ENABLED = String(import.meta.env.VITE_GOOGLE_SHEETS_SYNC_ENABLED || '') === 'true';
@@ -81,9 +108,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   
   // State (Simulating Database)
-  const [products, setProducts] = useState(initialProducts);
-  const [sales, setSales] = useState(initialSales);
-  const [users, setUsers] = useState(initialUsers);
+  const [products, setProducts] = useState(() => loadJsonFromStorage(STORAGE_KEYS.products, initialProducts));
+  const [sales, setSales] = useState(() => loadJsonFromStorage(STORAGE_KEYS.sales, initialSales));
+  const [users, setUsers] = useState(() => loadJsonFromStorage(STORAGE_KEYS.users, initialUsers));
   
   // Notification Toast
   const [toast, setToast] = useState(null);
@@ -91,6 +118,19 @@ export default function App() {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
+
+  // Persist data for lifetime (until browser storage cleared)
+  useEffect(() => {
+    saveJsonToStorage(STORAGE_KEYS.products, products);
+  }, [products]);
+
+  useEffect(() => {
+    saveJsonToStorage(STORAGE_KEYS.sales, sales);
+  }, [sales]);
+
+  useEffect(() => {
+    saveJsonToStorage(STORAGE_KEYS.users, users);
+  }, [users]);
 
   // If not logged in, show login screen
   if (!currentUser) {
